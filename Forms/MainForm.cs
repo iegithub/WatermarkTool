@@ -38,6 +38,7 @@ namespace WatermarkTool.Forms
         private readonly List<KeywordRule> _keywordRules = new();
         private Color _selectedColor = Color.FromArgb(200, 200, 200);
         private WatermarkSettings _currentSettings;
+        private string? _sourceRootPath; // 用户选择的源根目录（用于保持备份目录结构）
 
         public MainForm()
         {
@@ -181,6 +182,15 @@ namespace WatermarkTool.Forms
 
             if (ofd.ShowDialog() == DialogResult.OK)
             {
+                // 记录源根目录（取第一个文件所在目录的父目录，或目录本身）
+                if (ofd.FileNames.Length > 0)
+                {
+                    var firstFileDir = Path.GetDirectoryName(ofd.FileNames[0]);
+                    if (firstFileDir != null)
+                    {
+                        _sourceRootPath = firstFileDir;
+                    }
+                }
                 AddFiles(ofd.FileNames);
             }
         }
@@ -194,6 +204,9 @@ namespace WatermarkTool.Forms
 
             if (fbd.ShowDialog() == DialogResult.OK)
             {
+                // 记录源根目录
+                _sourceRootPath = fbd.SelectedPath;
+                
                 var files = Directory.GetFiles(fbd.SelectedPath, "*.*", SearchOption.AllDirectories)
                     .Where(f => f.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase) ||
                                 f.EndsWith(".docx", StringComparison.OrdinalIgnoreCase))
@@ -750,10 +763,25 @@ namespace WatermarkTool.Forms
                         result.WatermarkText = watermarkText;
                         result.MatchedKeyword = matchedKeyword;
 
-                        // 备份
+                        // 备份 - 保持目录结构
                         if (backup)
                         {
-                            File.Copy(filePath, filePath + ".bak", true);
+                            string? backupPath = null;
+                            if (!string.IsNullOrEmpty(_sourceRootPath))
+                            {
+                                backupPath = BackupService.BackupFile(filePath, _sourceRootPath);
+                            }
+                            else
+                            {
+                                // 如果没有源根目录（理论上不会发生），使用简单备份
+                                backupPath = filePath + ".bak";
+                                File.Copy(filePath, backupPath, true);
+                            }
+                            
+                            if (backupPath != null)
+                            {
+                                Console.WriteLine($"已备份: {backupPath}");
+                            }
                         }
 
                         // 根据文件类型添加水印

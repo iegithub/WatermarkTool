@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -12,6 +12,18 @@ namespace WatermarkTool.Forms
 {
     /// <summary>
     /// 主窗体 - 文件选择、关键字管理、水印设置、批量处理
+    /// 布局结构：
+    /// ┌──────────────────────────────────────────────┐
+    /// │  左侧 (SplitContainer.Panel1)  │  右侧 (Panel2) │
+    /// │  ┌────────────────────────┐  │  ┌─────────────┐ │
+    /// │  │  文件选择 (上)         │  │  │ 水印设置    │ │
+    /// │  │                        │  │  │ + 预览区域  │ │
+    /// │  ├────────────────────────┤  │  ├─────────────┤ │
+    /// │  │  关键字规则 (下)       │  │  │ 操作按钮    │ │
+    /// │  └────────────────────────┘  │  └─────────────┘ │
+    /// ├──────────────────────────────────────────────┤
+    /// │  状态栏                                           │
+    /// └──────────────────────────────────────────────┘
     /// </summary>
     public class MainForm : Form
     {
@@ -38,7 +50,7 @@ namespace WatermarkTool.Forms
         private readonly List<KeywordRule> _keywordRules = new();
         private Color _selectedColor = Color.FromArgb(200, 200, 200);
         private WatermarkSettings _currentSettings;
-        private string? _sourceRootPath; // 用户选择的源根目录（用于保持备份目录结构）
+        private string? _sourceRootPath;
 
         public MainForm()
         {
@@ -50,8 +62,8 @@ namespace WatermarkTool.Forms
         private void InitializeForm()
         {
             Text = "批量水印工具 - Excel & Word";
-            Size = new Size(1100, 720);
-            MinimumSize = new Size(900, 600);
+            Size = new Size(1100, 750);
+            MinimumSize = new Size(950, 650);
             StartPosition = FormStartPosition.CenterScreen;
             BackColor = Color.FromArgb(245, 245, 248);
             Font = new Font("微软雅黑", 9f);
@@ -59,33 +71,49 @@ namespace WatermarkTool.Forms
 
         private void InitializeUI()
         {
-            // 主布局：左右分栏
-            var mainPanel = new SplitContainer
+            // ===== 主布局：左右分栏 =====
+            var mainSplit = new SplitContainer
             {
                 Dock = DockStyle.Fill,
-                SplitterDistance = 380,
-                FixedPanel = FixedPanel.Panel1
+                Orientation = Orientation.Vertical,
+                SplitterDistance = 400,
+                FixedPanel = FixedPanel.Panel1,
+                BackColor = Color.FromArgb(220, 220, 225)
             };
 
-            // ===== 左侧面板 =====
-            var leftPanel = mainPanel.Panel1;
-            leftPanel.Controls.Add(CreateFileSelectionPanel());
-            leftPanel.Controls.Add(CreateKeywordPanel());
+            // ===== 左侧面板：上下分栏（文件选择 / 关键字规则）=====
+            var leftSplit = new SplitContainer
+            {
+                Dock = DockStyle.Fill,
+                Orientation = Orientation.Horizontal,
+                SplitterDistance = 340,
+                FixedPanel = FixedPanel.Panel1
+            };
+            leftSplit.Panel1.Controls.Add(CreateFileSelectionPanel());
+            leftSplit.Panel2.Controls.Add(CreateKeywordPanel());
+            mainSplit.Panel1.Controls.Add(leftSplit);
 
-            // ===== 右侧面板 =====
-            var rightPanel = mainPanel.Panel2;
-            rightPanel.Controls.Add(CreateSettingsPanel());
-            rightPanel.Controls.Add(CreateActionPanel());
+            // ===== 右侧面板：上下分栏（水印设置 / 操作按钮）=====
+            var rightSplit = new SplitContainer
+            {
+                Dock = DockStyle.Fill,
+                Orientation = Orientation.Horizontal,
+                SplitterDistance = 600,
+                FixedPanel = FixedPanel.Panel1
+            };
+            rightSplit.Panel1.Controls.Add(CreateSettingsPanel());
+            rightSplit.Panel2.Controls.Add(CreateActionPanel());
+            mainSplit.Panel2.Controls.Add(rightSplit);
 
-            Controls.Add(mainPanel);
+            Controls.Add(mainSplit);
 
-            // 底部状态栏
-            var statusPanel = new StatusStrip();
+            // ===== 底部状态栏 =====
+            var statusStrip = new StatusStrip();
             toolStripStatusLabel = new ToolStripStatusLabel("就绪");
             toolStripProgressBar = new ToolStripProgressBar { Visible = false, Size = new Size(200, 20) };
-            statusPanel.Items.Add(toolStripStatusLabel);
-            statusPanel.Items.Add(toolStripProgressBar);
-            Controls.Add(statusPanel);
+            statusStrip.Items.Add(toolStripStatusLabel);
+            statusStrip.Items.Add(toolStripProgressBar);
+            Controls.Add(statusStrip);
         }
 
         #region 文件选择面板
@@ -94,21 +122,22 @@ namespace WatermarkTool.Forms
             var panel = new Panel
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(8),
+                BackColor = Color.FromArgb(250, 250, 252),
+                Padding = new Padding(10)
             };
 
             var titleLabel = new Label
             {
                 Text = "📄 选择文件",
                 Font = new Font("微软雅黑", 11f, FontStyle.Bold),
-                Location = new Point(0, 0),
+                Location = new Point(5, 5),
                 AutoSize = true
             };
 
             var btnAddFiles = new Button
             {
                 Text = "添加文件",
-                Location = new Point(0, 30),
+                Location = new Point(5, 32),
                 Size = new Size(100, 32),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(70, 130, 220),
@@ -121,7 +150,7 @@ namespace WatermarkTool.Forms
             var btnAddFolder = new Button
             {
                 Text = "添加文件夹",
-                Location = new Point(110, 30),
+                Location = new Point(115, 32),
                 Size = new Size(100, 32),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(70, 130, 220),
@@ -134,7 +163,7 @@ namespace WatermarkTool.Forms
             var btnClearFiles = new Button
             {
                 Text = "清空",
-                Location = new Point(220, 30),
+                Location = new Point(225, 32),
                 Size = new Size(60, 32),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(180, 80, 80),
@@ -146,27 +175,27 @@ namespace WatermarkTool.Forms
 
             lstFiles = new ListBox
             {
-                Location = new Point(0, 70),
-                Size = new Size(360, 200),
+                Location = new Point(5, 72),
+                Size = new Size(375, 200),
                 Font = new Font("Consolas", 8.5f),
-                SelectionMode = SelectionMode.MultiExtended
+                SelectionMode = SelectionMode.MultiExtended,
+                BorderStyle = BorderStyle.FixedSingle
             };
 
             var lblCount = new Label
             {
                 Text = "已选 0 个文件",
-                Location = new Point(0, 275),
+                Location = new Point(5, 278),
                 AutoSize = true,
                 ForeColor = Color.FromArgb(120, 120, 120)
             };
             lblCount.Name = "lblFileCount";
 
-            panel.Controls.Add(titleLabel);
-            panel.Controls.Add(btnAddFiles);
-            panel.Controls.Add(btnAddFolder);
-            panel.Controls.Add(btnClearFiles);
-            panel.Controls.Add(lstFiles);
-            panel.Controls.Add(lblCount);
+            panel.Controls.AddRange(new Control[]
+            {
+                titleLabel, btnAddFiles, btnAddFolder, btnClearFiles,
+                lstFiles, lblCount
+            });
 
             return panel;
         }
@@ -182,14 +211,11 @@ namespace WatermarkTool.Forms
 
             if (ofd.ShowDialog() == DialogResult.OK)
             {
-                // 记录源根目录（取第一个文件所在目录的父目录，或目录本身）
                 if (ofd.FileNames.Length > 0)
                 {
                     var firstFileDir = Path.GetDirectoryName(ofd.FileNames[0]);
                     if (firstFileDir != null)
-                    {
                         _sourceRootPath = firstFileDir;
-                    }
                 }
                 AddFiles(ofd.FileNames);
             }
@@ -204,9 +230,8 @@ namespace WatermarkTool.Forms
 
             if (fbd.ShowDialog() == DialogResult.OK)
             {
-                // 记录源根目录
                 _sourceRootPath = fbd.SelectedPath;
-                
+
                 var files = Directory.GetFiles(fbd.SelectedPath, "*.*", SearchOption.AllDirectories)
                     .Where(f => f.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase) ||
                                 f.EndsWith(".docx", StringComparison.OrdinalIgnoreCase))
@@ -248,39 +273,38 @@ namespace WatermarkTool.Forms
         {
             var panel = new Panel
             {
-                Dock = DockStyle.Bottom,
-                Height = 230,
-                Padding = new Padding(8)
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(250, 250, 252),
+                Padding = new Padding(10),
+                AutoScroll = true
             };
 
             var titleLabel = new Label
             {
                 Text = "🔑 关键字规则",
                 Font = new Font("微软雅黑", 11f, FontStyle.Bold),
-                Location = new Point(0, 0),
+                Location = new Point(5, 5),
                 AutoSize = true
             };
 
             var lblHint = new Label
             {
                 Text = "文件名包含关键字时，使用对应水印文字；否则使用默认水印",
-                Location = new Point(0, 22),
+                Location = new Point(5, 27),
                 AutoSize = true,
                 ForeColor = Color.FromArgb(120, 120, 120),
                 Font = new Font("微软雅黑", 8f)
             };
 
-            // 输入区域
-            var lblNewKeyword = new Label { Text = "关键字:", Location = new Point(0, 48), AutoSize = true };
-            txtNewKeyword = new TextBox { Location = new Point(55, 45), Width = 100 };
-
-            var lblKwWatermark = new Label { Text = "水印文字:", Location = new Point(165, 48), AutoSize = true };
-            txtKeywordWatermark = new TextBox { Location = new Point(230, 45), Width = 100, PlaceholderText = "(留空=用关键字)" };
+            var lblNewKeyword = new Label { Text = "关键字:", Location = new Point(5, 52), AutoSize = true };
+            txtNewKeyword = new TextBox { Location = new Point(60, 49), Width = 100 };
+            var lblKwWatermark = new Label { Text = "水印文字:", Location = new Point(170, 52), AutoSize = true };
+            txtKeywordWatermark = new TextBox { Location = new Point(235, 49), Width = 100, PlaceholderText = "(留空=用关键字)" };
 
             var btnAddKeyword = new Button
             {
                 Text = "添加",
-                Location = new Point(340, 44),
+                Location = new Point(345, 48),
                 Size = new Size(50, 26),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(80, 160, 80),
@@ -289,19 +313,19 @@ namespace WatermarkTool.Forms
             };
             btnAddKeyword.Click += BtnAddKeyword_Click;
 
-            // 关键字列表
             lstKeywords = new ListBox
             {
-                Location = new Point(0, 80),
-                Size = new Size(300, 100),
-                Font = new Font("微软雅黑", 9f)
+                Location = new Point(5, 85),
+                Size = new Size(300, 80),
+                Font = new Font("微软雅黑", 9f),
+                BorderStyle = BorderStyle.FixedSingle
             };
 
             var btnRemoveKeyword = new Button
             {
                 Text = "删除选中",
-                Location = new Point(310, 80),
-                Size = new Size(80, 30),
+                Location = new Point(315, 85),
+                Size = new Size(80, 28),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(180, 80, 80),
                 ForeColor = Color.White,
@@ -309,11 +333,10 @@ namespace WatermarkTool.Forms
             };
             btnRemoveKeyword.Click += BtnRemoveKeyword_Click;
 
-            // 默认水印文字
-            var lblDefault = new Label { Text = "默认水印文字:", Location = new Point(0, 190), AutoSize = true };
+            var lblDefault = new Label { Text = "默认水印文字:", Location = new Point(5, 175), AutoSize = true };
             txtDefaultWatermark = new TextBox
             {
-                Location = new Point(100, 187),
+                Location = new Point(105, 172),
                 Width = 200,
                 Text = "水印"
             };
@@ -365,6 +388,7 @@ namespace WatermarkTool.Forms
             var panel = new Panel
             {
                 Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(250, 250, 252),
                 Padding = new Padding(10),
                 AutoScroll = true
             };
@@ -373,14 +397,13 @@ namespace WatermarkTool.Forms
             {
                 Text = "🎨 水印设置",
                 Font = new Font("微软雅黑", 11f, FontStyle.Bold),
-                Location = new Point(0, 0),
+                Location = new Point(5, 5),
                 AutoSize = true
             };
 
-            int y = 30;
+            int y = 32;
 
             // 水印样式
-            var lblStyle = CreateLabel("水印样式:", 0, y);
             cmbStyle = new ComboBox
             {
                 Location = new Point(100, y - 3),
@@ -396,10 +419,11 @@ namespace WatermarkTool.Forms
                     ? WatermarkStyle.ArtisticText
                     : WatermarkStyle.SemiTransparent;
             };
-            y += 35;
+            panel.Controls.Add(CreateLabel("水印样式:", 5, y));
+            panel.Controls.Add(cmbStyle);
+            y += 32;
 
             // 字体
-            var lblFont = CreateLabel("字体:", 0, y);
             cmbFontFamily = new ComboBox
             {
                 Location = new Point(100, y - 3),
@@ -413,10 +437,11 @@ namespace WatermarkTool.Forms
             {
                 _currentSettings.FontFamily = cmbFontFamily.Text;
             };
-            y += 35;
+            panel.Controls.Add(CreateLabel("字体:", 5, y));
+            panel.Controls.Add(cmbFontFamily);
+            y += 32;
 
             // 字体大小
-            var lblSize = CreateLabel("字体大小:", 0, y);
             txtFontSize = new TextBox
             {
                 Location = new Point(100, y - 3),
@@ -428,15 +453,16 @@ namespace WatermarkTool.Forms
                 if (float.TryParse(txtFontSize.Text, out var size))
                     _currentSettings.FontSize = size;
             };
-            var lblSizeUnit = CreateLabel("磅", 185, y);
-            y += 35;
+            panel.Controls.Add(CreateLabel("字体大小:", 5, y));
+            panel.Controls.Add(txtFontSize);
+            panel.Controls.Add(CreateLabel("磅", 185, y));
+            y += 32;
 
             // 颜色
-            var lblColor = CreateLabel("水印颜色:", 0, y);
             btnColorPicker = new Button
             {
                 Location = new Point(100, y - 3),
-                Size = new Size(80, 28),
+                Size = new Size(80, 26),
                 Text = "选择颜色",
                 FlatStyle = FlatStyle.Flat,
                 BackColor = _selectedColor,
@@ -447,14 +473,16 @@ namespace WatermarkTool.Forms
             pnlColorPreview = new Panel
             {
                 Location = new Point(190, y - 3),
-                Size = new Size(60, 28),
+                Size = new Size(50, 26),
                 BackColor = _selectedColor,
                 BorderStyle = BorderStyle.FixedSingle
             };
-            y += 35;
+            panel.Controls.Add(CreateLabel("水印颜色:", 5, y));
+            panel.Controls.Add(btnColorPicker);
+            panel.Controls.Add(pnlColorPreview);
+            y += 32;
 
             // 透明度
-            var lblOpacity = CreateLabel("透明度:", 0, y);
             nudOpacity = new NumericUpDown
             {
                 Location = new Point(100, y - 3),
@@ -467,10 +495,11 @@ namespace WatermarkTool.Forms
             {
                 _currentSettings.Opacity = (int)nudOpacity.Value;
             };
-            y += 35;
+            panel.Controls.Add(CreateLabel("透明度:", 5, y));
+            panel.Controls.Add(nudOpacity);
+            y += 32;
 
             // 旋转角度
-            var lblRotation = CreateLabel("旋转角度:", 0, y);
             nudRotation = new NumericUpDown
             {
                 Location = new Point(100, y - 3),
@@ -483,11 +512,12 @@ namespace WatermarkTool.Forms
             {
                 _currentSettings.Rotation = (float)nudRotation.Value;
             };
-            var lblRotUnit = CreateLabel("度", 185, y);
-            y += 35;
+            panel.Controls.Add(CreateLabel("旋转角度:", 5, y));
+            panel.Controls.Add(nudRotation);
+            panel.Controls.Add(CreateLabel("度", 185, y));
+            y += 32;
 
             // 位置
-            var lblPosition = CreateLabel("水印位置:", 0, y);
             cmbPosition = new ComboBox
             {
                 Location = new Point(100, y - 3),
@@ -506,7 +536,7 @@ namespace WatermarkTool.Forms
             var btnPreview = new Button
             {
                 Location = new Point(260, y - 3),
-                Size = new Size(80, 28),
+                Size = new Size(80, 26),
                 Text = "预览位置",
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(70, 130, 220),
@@ -514,37 +544,23 @@ namespace WatermarkTool.Forms
                 Cursor = Cursors.Hand
             };
             btnPreview.Click += BtnPreview_Click;
-            y += 45;
-
-            // 位置坐标显示
-            var lblCoordHint = new Label
-            {
-                Location = new Point(0, y),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(120, 120, 120),
-                Font = new Font("微软雅黑", 8f),
-                Text = "选择「自定义」后可点击「预览位置」拖拽调整"
-            };
-            y += 25;
+            panel.Controls.Add(CreateLabel("水印位置:", 5, y));
+            panel.Controls.Add(cmbPosition);
+            panel.Controls.Add(btnPreview);
+            y += 38;
 
             // 预览面板
             var previewPanel = new Panel
             {
-                Location = new Point(0, y),
-                Size = new Size(350, 200),
+                Location = new Point(5, y),
+                Size = new Size(350, 180),
                 BorderStyle = BorderStyle.FixedSingle,
                 BackColor = Color.White
             };
             previewPanel.Name = "miniPreview";
             previewPanel.Paint += MiniPreview_Paint;
 
-            panel.Controls.AddRange(new Control[]
-            {
-                titleLabel, lblStyle, cmbStyle, lblFont, cmbFontFamily,
-                lblSize, txtFontSize, lblSizeUnit, lblColor, btnColorPicker, pnlColorPreview,
-                lblOpacity, nudOpacity, lblRotation, nudRotation, lblRotUnit,
-                lblPosition, cmbPosition, btnPreview, lblCoordHint, previewPanel
-            });
+            panel.Controls.Add(previewPanel);
 
             return panel;
         }
@@ -580,7 +596,6 @@ namespace WatermarkTool.Forms
 
         private void CmbPosition_SelectedIndexChanged(object? sender, EventArgs e)
         {
-            var posNames = new[] { "Center", "TopLeft", "TopCenter", "TopRight", "MiddleLeft", "MiddleRight", "BottomLeft", "BottomCenter", "BottomRight", "Custom" };
             _currentSettings.Position = (WatermarkPosition)cmbPosition!.SelectedIndex;
 
             if (cmbPosition.SelectedIndex < 9)
@@ -599,8 +614,7 @@ namespace WatermarkTool.Forms
 
         private void BtnPreview_Click(object? sender, EventArgs e)
         {
-            // 切换到自定义模式
-            cmbPosition!.SelectedIndex = 9; // Custom
+            cmbPosition!.SelectedIndex = 9;
             _currentSettings.Position = WatermarkPosition.Custom;
             _currentSettings.UseCustomPosition = true;
 
@@ -621,7 +635,6 @@ namespace WatermarkTool.Forms
 
             g.Clear(Color.White);
 
-            // 模拟文档内容
             using var lightBrush = new SolidBrush(Color.FromArgb(230, 230, 230));
             for (int i = 0; i < 12; i++)
             {
@@ -631,10 +644,9 @@ namespace WatermarkTool.Forms
                 g.FillRectangle(lightBrush, 20, ly, lw, 8);
             }
 
-            // 绘制水印预览
             float x = rect.Width * _currentSettings.CustomX / 100f;
             float y = rect.Height * _currentSettings.CustomY / 100f;
-            var font = new Font(_currentSettings.FontFamily, 14f, FontStyle.Bold);
+            using var font = new Font(_currentSettings.FontFamily, 14f, FontStyle.Bold);
             var color = Color.FromArgb(_currentSettings.Opacity, _currentSettings.Color);
 
             g.TranslateTransform(x, y);
@@ -646,16 +658,13 @@ namespace WatermarkTool.Forms
             g.DrawString(text, font, textBrush, -size.Width / 2f, -size.Height / 2f);
 
             g.ResetTransform();
-            font.Dispose();
 
-            // 绘制边框
             using var borderPen = new Pen(Color.FromArgb(200, 200, 200));
             g.DrawRectangle(borderPen, 0, 0, rect.Width - 1, rect.Height - 1);
         }
 
         private void InvalidateMiniPreview()
         {
-            // 刷新当前窗体中的miniPreview
             foreach (Control c in Controls)
             {
                 var p = FindControlRecursive(c, "miniPreview") as Panel;
@@ -680,8 +689,8 @@ namespace WatermarkTool.Forms
         {
             var panel = new Panel
             {
-                Dock = DockStyle.Bottom,
-                Height = 60,
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(245, 245, 248),
                 Padding = new Padding(10)
             };
 
@@ -700,8 +709,8 @@ namespace WatermarkTool.Forms
 
             var btnBackup = new CheckBox
             {
-                Text = "处理前备份原文件",
-                Location = new Point(230, 16),
+                Text = "处理前备份原文件（保持目录结构）",
+                Location = new Point(230, 18),
                 Font = new Font("微软雅黑", 9f),
                 Checked = true
             };
@@ -727,13 +736,11 @@ namespace WatermarkTool.Forms
                 return;
             }
 
-            // 收集当前设置
             _currentSettings.Text = defaultText;
 
             var chkBackup = FindControlRecursive(this, "chkBackup") as CheckBox;
             bool backup = chkBackup?.Checked ?? true;
 
-            // 禁用按钮
             var btn = (Button)sender!;
             btn.Enabled = false;
             toolStripProgressBar!.Visible = true;
@@ -756,14 +763,12 @@ namespace WatermarkTool.Forms
 
                     try
                     {
-                        // 匹配关键字
                         var (watermarkText, matchedKeyword) = KeywordMatcher.Match(
                             fileName, _keywordRules, defaultText);
 
                         result.WatermarkText = watermarkText;
                         result.MatchedKeyword = matchedKeyword;
 
-                        // 备份 - 保持目录结构
                         if (backup)
                         {
                             string? backupPath = null;
@@ -773,18 +778,14 @@ namespace WatermarkTool.Forms
                             }
                             else
                             {
-                                // 如果没有源根目录（理论上不会发生），使用简单备份
                                 backupPath = filePath + ".bak";
                                 File.Copy(filePath, backupPath, true);
                             }
-                            
+
                             if (backupPath != null)
-                            {
                                 Console.WriteLine($"已备份: {backupPath}");
-                            }
                         }
 
-                        // 根据文件类型添加水印
                         var ext = Path.GetExtension(filePath).ToLowerInvariant();
                         if (ext == ".docx")
                         {
@@ -801,9 +802,7 @@ namespace WatermarkTool.Forms
                         }
 
                         if (!result.Success && string.IsNullOrEmpty(result.ErrorMessage))
-                        {
                             result.ErrorMessage = "未知错误";
-                        }
                     }
                     catch (Exception ex)
                     {
@@ -821,11 +820,8 @@ namespace WatermarkTool.Forms
                 }
             });
 
-            // 恢复按钮
             btn.Enabled = true;
             toolStripProgressBar.Visible = false;
-
-            // 显示结果
             ShowResults(results);
         }
 
@@ -833,10 +829,8 @@ namespace WatermarkTool.Forms
         {
             int success = results.Count(r => r.Success);
             int failed = results.Count(r => !r.Success);
-
             toolStripStatusLabel!.Text = $"处理完成: 成功 {success}, 失败 {failed}, 共 {results.Count} 个文件";
 
-            // 创建结果窗体
             var resultForm = new Form
             {
                 Text = "处理结果",
@@ -866,9 +860,7 @@ namespace WatermarkTool.Forms
                 错误信息 = r.ErrorMessage
             }).ToList();
 
-            // 设置列宽
             dgvResults.AutoResizeColumns(DataGridViewAutoSizeColumnsMode.AllCells);
-
             resultForm.Controls.Add(dgvResults);
             resultForm.ShowDialog();
         }

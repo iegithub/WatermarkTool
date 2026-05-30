@@ -45,10 +45,13 @@ namespace WatermarkTool.Forms
         private ToolStripStatusLabel? toolStripStatusLabel;
         private ToolStripProgressBar? toolStripProgressBar;
 
+        // ===== 常量 =====
+        private const string VERSION = "1.3.0";
+
         // ===== 数据 =====
         private readonly List<string> _selectedFiles = new();
         private readonly List<KeywordRule> _keywordRules = new();
-        private Color _selectedColor = Color.FromArgb(200, 200, 200);
+        private Color _selectedColor = Color.Red; // 默认红色
         private WatermarkSettings _currentSettings;
         private string? _sourceRootPath;
 
@@ -57,20 +60,43 @@ namespace WatermarkTool.Forms
             _currentSettings = new WatermarkSettings();
             InitializeForm();
             InitializeUI();
+            LoadSavedSettings(); // 加载保存的设置
         }
 
         private void InitializeForm()
         {
-            Text = "批量水印工具 - Excel & Word";
+            Text = $"批量水印工具 v{VERSION} - Excel & Word";
             Size = new Size(1100, 750);
             MinimumSize = new Size(950, 650);
             StartPosition = FormStartPosition.CenterScreen;
             BackColor = Color.FromArgb(245, 245, 248);
             Font = new Font("微软雅黑", 9f);
+            
+            // 窗体关闭时保存设置
+            this.FormClosing += (s, e) => SaveCurrentSettings();
         }
 
         private void InitializeUI()
         {
+            // ===== 菜单栏 =====
+            var menuStrip = new MenuStrip();
+            
+            // 文件菜单
+            var fileMenu = new ToolStripMenuItem("文件(&F)");
+            var saveSettingsItem = new ToolStripMenuItem("保存设置", null, (s, e) => SaveCurrentSettings());
+            var loadSettingsItem = new ToolStripMenuItem("重新加载设置", null, (s, e) => LoadSavedSettings());
+            var exitItem = new ToolStripMenuItem("退出", null, (s, e) => this.Close());
+            fileMenu.DropDownItems.AddRange(new ToolStripItem[] { saveSettingsItem, loadSettingsItem, new ToolStripSeparator(), exitItem });
+            
+            // 帮助菜单
+            var helpMenu = new ToolStripMenuItem("帮助(&H)");
+            var aboutItem = new ToolStripMenuItem("关于", null, ShowAboutDialog);
+            var helpItem = new ToolStripMenuItem("使用帮助", null, ShowHelpDialog);
+            helpMenu.DropDownItems.AddRange(new ToolStripItem[] { helpItem, new ToolStripSeparator(), aboutItem });
+            
+            menuStrip.Items.AddRange(new ToolStripItem[] { fileMenu, helpMenu });
+            Controls.Add(menuStrip);
+            
             // ===== 主布局：左右分栏 =====
             var mainSplit = new SplitContainer
             {
@@ -506,7 +532,7 @@ namespace WatermarkTool.Forms
                 Width = 80,
                 Minimum = -360,
                 Maximum = 360,
-                Value = -30
+                Value = 0  // 默认0度
             };
             nudRotation.ValueChanged += (s, e) =>
             {
@@ -863,6 +889,172 @@ namespace WatermarkTool.Forms
             dgvResults.AutoResizeColumns(DataGridViewAutoSizeColumnsMode.AllCells);
             resultForm.Controls.Add(dgvResults);
             resultForm.ShowDialog();
+        }
+        #endregion
+
+        #region 设置保存与加载
+        /// <summary>
+        /// 保存当前设置到文件
+        /// </summary>
+        private void SaveCurrentSettings()
+        {
+            try
+            {
+                // 从UI收集当前设置
+                _currentSettings.Text = txtDefaultWatermark?.Text ?? "水印";
+                _currentSettings.Color = _selectedColor;
+                _currentSettings.FontSize = float.TryParse(txtFontSize?.Text, out var size) ? size : 48f;
+                _currentSettings.FontFamily = cmbFontFamily?.Text ?? "微软雅黑";
+                _currentSettings.Style = cmbStyle?.SelectedIndex == 0 ? WatermarkStyle.ArtisticText : WatermarkStyle.SemiTransparent;
+                _currentSettings.Position = (WatermarkPosition)(cmbPosition?.SelectedIndex ?? 0);
+                _currentSettings.Opacity = (int)(nudOpacity?.Value ?? 128);
+                _currentSettings.Rotation = (float)(nudRotation?.Value ?? 0);
+
+                SettingsService.SaveSettings(_currentSettings, _keywordRules);
+                toolStripStatusLabel!.Text = "设置已保存";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"保存设置失败: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        /// <summary>
+        /// 从文件加载保存的设置
+        /// </summary>
+        private void LoadSavedSettings()
+        {
+            try
+            {
+                var (settings, keywordRules) = SettingsService.LoadSettings();
+                
+                if (settings == null)
+                {
+                    // 使用默认设置
+                    _currentSettings = new WatermarkSettings();
+                    _selectedColor = Color.Red;
+                    ApplySettingsToUI();
+                    return;
+                }
+
+                _currentSettings = settings;
+                _selectedColor = settings.Color;
+                
+                // 加载关键字规则
+                _keywordRules.Clear();
+                _keywordRules.AddRange(keywordRules);
+                lstKeywords?.Items.Clear();
+                foreach (var rule in _keywordRules)
+                {
+                    lstKeywords?.Items.Add($"{rule.Keyword} → {rule.GetWatermarkText()}");
+                }
+
+                ApplySettingsToUI();
+                toolStripStatusLabel!.Text = $"已加载设置 ({SettingsService.GetSettingsPath()})";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"加载设置失败: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        /// <summary>
+        /// 将设置应用到UI控件
+        /// </summary>
+        private void ApplySettingsToUI()
+        {
+            if (txtDefaultWatermark != null)
+                txtDefaultWatermark.Text = _currentSettings.Text;
+            
+            if (txtFontSize != null)
+                txtFontSize.Text = _currentSettings.FontSize.ToString();
+            
+            if (cmbFontFamily != null)
+                cmbFontFamily.SelectedIndex = Math.Max(0, cmbFontFamily.Items.IndexOf(_currentSettings.FontFamily));
+            
+            if (cmbStyle != null)
+                cmbStyle.SelectedIndex = (int)_currentSettings.Style;
+            
+            if (cmbPosition != null)
+                cmbPosition.SelectedIndex = (int)_currentSettings.Position;
+            
+            if (nudOpacity != null)
+                nudOpacity.Value = _currentSettings.Opacity;
+            
+            if (nudRotation != null)
+                nudRotation.Value = (decimal)_currentSettings.Rotation;
+            
+            if (btnColorPicker != null)
+                btnColorPicker.BackColor = _selectedColor;
+            
+            if (pnlColorPreview != null)
+                pnlColorPreview.BackColor = _selectedColor;
+            
+            InvalidateMiniPreview();
+        }
+        #endregion
+
+        #region 帮助与关于
+        private void ShowAboutDialog(object? sender, EventArgs e)
+        {
+            var aboutText = $@"
+批量水印工具 v{VERSION}
+
+功能特性：
+• 批量处理 Excel (.xlsx) 和 Word (.docx) 文件
+• 艺术字效果或半透明文字水印
+• 可视化预览，支持拖拽定位
+• 关键字匹配自动选择水印文字
+• 保持目录结构的备份功能
+• 设置自动保存与加载
+
+技术栈：
+• .NET 6.0 + Windows Forms
+• Open XML SDK
+
+作者：WatermarkTool
+许可：MIT License
+";
+            MessageBox.Show(aboutText, "关于", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void ShowHelpDialog(object? sender, EventArgs e)
+        {
+            var helpText = @"
+【使用帮助】
+
+1. 选择文件
+   • 点击「添加文件」选择单个或多个文件
+   • 点击「添加文件夹」批量选择整个文件夹
+   • 支持的格式：.xlsx, .docx
+
+2. 关键字规则
+   • 添加关键字和对应的水印文字
+   • 文件名包含关键字时，自动使用对应水印
+   • 否则使用默认水印文字
+
+3. 水印设置
+   • 水印样式：艺术字效果 / 半透明文字
+   • 字体、大小、颜色、透明度、旋转角度
+   • 位置：预设位置或自定义拖拽定位
+   • 点击「预览位置」可拖拽调整水印位置
+
+4. 批量处理
+   • 勾选「处理前备份」会在同级目录创建备份
+   • 备份保持原有目录结构
+   • 点击「开始批量添加水印」执行处理
+
+5. 设置保存
+   • 关闭程序时自动保存设置
+   • 下次打开自动加载上次的设置
+   • 也可通过「文件」菜单手动保存/加载
+
+【注意事项】
+• Excel 水印不会触发公式重算
+• Word 水印通过页眉添加，不影响正文
+• 备份目录命名规则：原文件夹名_backup
+";
+            MessageBox.Show(helpText, "使用帮助", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         #endregion
     }

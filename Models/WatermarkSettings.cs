@@ -14,13 +14,13 @@ namespace WatermarkTool.Models
         public Color Color { get; set; } = Color.Red; // 默认红色
 
         /// <summary>字体大小（磅）</summary>
-        public float FontSize { get; set; } = 48f;
+        public float FontSize { get; set; } = 8f; // 默认8磅
 
         /// <summary>字体名称</summary>
-        public string FontFamily { get; set; } = "微软雅黑";
+        public string FontFamily { get; set; } = "宋体"; // 默认宋体
 
         /// <summary>水印样式</summary>
-        public WatermarkStyle Style { get; set; } = WatermarkStyle.ArtisticText;
+        public WatermarkStyle Style { get; set; } = WatermarkStyle.SemiTransparent; // 默认半透明（无阴影）
 
         /// <summary>水印位置（页面中的预设位置）</summary>
         public WatermarkPosition Position { get; set; } = WatermarkPosition.Center;
@@ -96,9 +96,9 @@ namespace WatermarkTool.Models
         public int ColorG { get; set; } = 0;
         public int ColorB { get; set; } = 0;
         public int ColorA { get; set; } = 255;
-        public float FontSize { get; set; } = 48f;
-        public string FontFamily { get; set; } = "微软雅黑";
-        public WatermarkStyle Style { get; set; } = WatermarkStyle.ArtisticText;
+        public float FontSize { get; set; } = 8f; // 默认8磅
+        public string FontFamily { get; set; } = "宋体"; // 默认宋体
+        public WatermarkStyle Style { get; set; } = WatermarkStyle.SemiTransparent; // 默认半透明
         public WatermarkPosition Position { get; set; } = WatermarkPosition.Center;
         public float CustomX { get; set; } = 50f;
         public float CustomY { get; set; } = 50f;

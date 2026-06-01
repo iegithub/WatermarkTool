@@ -46,7 +46,7 @@ namespace WatermarkTool.Forms
         private ToolStripProgressBar? toolStripProgressBar;
 
         // ===== 常量 =====
-        private const string VERSION = "1.3.0";
+        private const string VERSION = "1.4.0";
 
         // ===== 数据 =====
         private readonly List<string> _selectedFiles = new();
@@ -66,8 +66,8 @@ namespace WatermarkTool.Forms
         private void InitializeForm()
         {
             Text = $"批量水印工具 v{VERSION} - Excel & Word";
-            Size = new Size(1100, 750);
-            MinimumSize = new Size(950, 650);
+            Size = new Size(1200, 800);
+            MinimumSize = new Size(1000, 700);
             StartPosition = FormStartPosition.CenterScreen;
             BackColor = Color.FromArgb(245, 245, 248);
             Font = new Font("微软雅黑", 9f);
@@ -102,7 +102,7 @@ namespace WatermarkTool.Forms
             {
                 Dock = DockStyle.Fill,
                 Orientation = Orientation.Vertical,
-                SplitterDistance = 400,
+                SplitterDistance = 420,
                 FixedPanel = FixedPanel.Panel1,
                 BackColor = Color.FromArgb(220, 220, 225)
             };
@@ -112,7 +112,7 @@ namespace WatermarkTool.Forms
             {
                 Dock = DockStyle.Fill,
                 Orientation = Orientation.Horizontal,
-                SplitterDistance = 340,
+                SplitterDistance = 380,
                 FixedPanel = FixedPanel.Panel1
             };
             leftSplit.Panel1.Controls.Add(CreateFileSelectionPanel());
@@ -202,7 +202,7 @@ namespace WatermarkTool.Forms
             lstFiles = new ListBox
             {
                 Location = new Point(5, 72),
-                Size = new Size(375, 200),
+                Size = new Size(395, 240),
                 Font = new Font("Consolas", 8.5f),
                 SelectionMode = SelectionMode.MultiExtended,
                 BorderStyle = BorderStyle.FixedSingle
@@ -438,7 +438,7 @@ namespace WatermarkTool.Forms
                 Font = new Font("微软雅黑", 9f)
             };
             cmbStyle.Items.AddRange(new object[] { "艺术字效果", "半透明文字" });
-            cmbStyle.SelectedIndex = 0;
+            cmbStyle.SelectedIndex = 1; // 默认半透明文字（无阴影）
             cmbStyle.SelectedIndexChanged += (s, e) =>
             {
                 _currentSettings.Style = cmbStyle.SelectedIndex == 0
@@ -457,8 +457,8 @@ namespace WatermarkTool.Forms
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 Font = new Font("微软雅黑", 9f)
             };
-            cmbFontFamily.Items.AddRange(new object[] { "微软雅黑", "宋体", "黑体", "楷体", "Arial", "Times New Roman" });
-            cmbFontFamily.SelectedIndex = 0;
+            cmbFontFamily.Items.AddRange(new object[] { "宋体", "微软雅黑", "黑体", "楷体", "Arial", "Times New Roman" });
+            cmbFontFamily.SelectedIndex = 0; // 默认宋体
             cmbFontFamily.SelectedIndexChanged += (s, e) =>
             {
                 _currentSettings.FontFamily = cmbFontFamily.Text;
@@ -472,7 +472,7 @@ namespace WatermarkTool.Forms
             {
                 Location = new Point(100, y - 3),
                 Width = 80,
-                Text = "48"
+                Text = "8"
             };
             txtFontSize.TextChanged += (s, e) =>
             {

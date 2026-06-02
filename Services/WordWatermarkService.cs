@@ -6,9 +6,9 @@ using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
-using A = DocumentFormat.OpenXml.Drawing;
-using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
-using PIC = DocumentFormat.OpenXml.Drawing.Pictures;
+using DocumentFormat.OpenXml.Drawing;
+using DocumentFormat.OpenXml.Drawing.Wordprocessing;
+using DocumentFormat.OpenXml.Drawing.Pictures;
 using WatermarkTool.Models;
 
 using WinFont = System.Drawing.Font;
@@ -105,38 +105,38 @@ namespace WatermarkTool.Services
             var drawing = new Drawing();
             
             // 创建 Anchor
-            var anchor = new DW.Anchor(
-                new DW.SimplePosition { X = 0, Y = 0 },
-                new DW.HorizontalPosition(
-                    new DW.PositionOffset(xEmu.ToString())
-                ) { RelativeFrom = DW.HorizontalRelativePositionValues.Page },
-                new DW.VerticalPosition(
-                    new DW.PositionOffset(yEmu.ToString())
-                ) { RelativeFrom = DW.VerticalRelativePositionValues.Page },
-                new DW.Extent { Cx = widthEmu, Cy = heightEmu },
-                new DW.EffectExtent { LeftEdge = 0, TopEdge = 0, RightEdge = 0, BottomEdge = 0 },
-                new DW.WrapNone(),
-                new DW.DocProperties { Id = 1, Name = "Watermark" },
-                new DW.NonVisualGraphicFrameDrawingProperties(
-                    new A.GraphicFrameLocks { NoChangeAspect = true }
+            var anchor = new Anchor(
+                new SimplePosition { X = 0, Y = 0 },
+                new HorizontalPosition(
+                    new PositionOffset(xEmu.ToString())
+                ) { RelativeFrom = HorizontalRelativePositionValues.Page },
+                new VerticalPosition(
+                    new PositionOffset(yEmu.ToString())
+                ) { RelativeFrom = VerticalRelativePositionValues.Page },
+                new Extent { Cx = widthEmu, Cy = heightEmu },
+                new EffectExtent { LeftEdge = 0, TopEdge = 0, RightEdge = 0, BottomEdge = 0 },
+                new WrapNone(),
+                new DocProperties { Id = 1, Name = "Watermark" },
+                new NonVisualGraphicFrameDrawingProperties(
+                    new GraphicFrameLocks { NoChangeAspect = true }
                 ),
-                new A.Graphic(
-                    new A.GraphicData(
-                        new PIC.Picture(
-                            new PIC.NonVisualPictureProperties(
-                                new A.NonVisualDrawingProperties { Id = 0, Name = "Watermark.png" },
-                                new A.NonVisualPictureDrawingProperties()
+                new Graphic(
+                    new GraphicData(
+                        new Picture(
+                            new NonVisualPictureProperties(
+                                new NonVisualDrawingProperties { Id = 0, Name = "Watermark.png" },
+                                new NonVisualPictureDrawingProperties()
                             ),
-                            new PIC.BlipFill(
-                                new A.Blip { Embed = imageRelId },
-                                new A.Stretch(new A.FillRectangle())
+                            new BlipFill(
+                                new Blip { Embed = imageRelId },
+                                new Stretch(new FillRectangle())
                             ),
-                            new PIC.ShapeProperties(
-                                new A.Transform2D(
-                                    new A.Offset { X = 0, Y = 0 },
-                                    new A.Extents { Cx = widthEmu, Cy = heightEmu }
+                            new ShapeProperties(
+                                new Transform2D(
+                                    new Offset { X = 0, Y = 0 },
+                                    new Extents { Cx = widthEmu, Cy = heightEmu }
                                 ) { Rotation = rotationEmu },
-                                new A.PresetGeometry(new A.AdjustValueList()) { Preset = A.ShapeTypeValues.Rectangle }
+                                new PresetGeometry(new AdjustValueList()) { Preset = ShapeTypeValues.Rectangle }
                             )
                         )
                     ) { Uri = "http://schemas.openxmlformats.org/drawingml/2006/picture" }
@@ -248,8 +248,8 @@ namespace WatermarkTool.Services
             foreach (var drawing in drawings)
             {
                 // 检查 Anchor 或 Inline 中的图片
-                var anchors = drawing.Descendants<DW.Anchor>().ToList();
-                var inlines = drawing.Descendants<DW.Inline>().ToList();
+                var anchors = drawing.Descendants<Anchor>().ToList();
+                var inlines = drawing.Descendants<Inline>().ToList();
                 
                 foreach (var anchor in anchors)
                 {

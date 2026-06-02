@@ -6,6 +6,9 @@ using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
+using A = DocumentFormat.OpenXml.Drawing;
+using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
+using PIC = DocumentFormat.OpenXml.Drawing.Pictures;
 using WatermarkTool.Models;
 
 using WinFont = System.Drawing.Font;
@@ -15,8 +18,7 @@ namespace WatermarkTool.Services
 {
     /// <summary>
     /// Word文档水印添加服务
-    /// 使用 wp:anchor 将水印图片锚定到页面正文区域（非页眉），仅首页显示
-    /// 不影响正文内容
+    /// 使用 OpenXML SDK 原生 API 创建锚定图片，确保在正文区域而非页眉
     /// </summary>
     public static class WordWatermarkService
     {
@@ -39,11 +41,8 @@ namespace WatermarkTool.Services
                 if (body == null)
                     return false;
 
-                // 移除已有的水印（页眉中的图片）
-                RemoveExistingWatermarkHeaders(mainPart);
-
-                // 移除已有的锚定水印图片
-                RemoveExistingAnchoredWatermarks(body);
+                // 移除已有的水印
+                RemoveExistingWatermarks(mainPart, body);
 
                 // 添加图片到 MainDocumentPart
                 var imagePart = mainPart.AddImagePart(ImagePartType.Png);
@@ -55,50 +54,30 @@ namespace WatermarkTool.Services
                 }
                 string imageRelId = mainPart.GetIdOfPart(imagePart);
 
-                // 计算尺寸（EMU）
+                // 计算尺寸和位置
                 long imageWidthEmu = watermarkImage.Width * 9525;
                 long imageHeightEmu = watermarkImage.Height * 9525;
 
-                // 计算位置（EMU）- 相对于页面
-                // A4: 595440 x 841920 EMU (210mm x 297mm)
-                long pageWidthEmu = 595440;
-                long pageHeightEmu = 841920;
+                // A4 页面尺寸
+                long pageWidthEmu = 595440;  // 210mm
+                long pageHeightEmu = 841920; // 297mm
 
+                // 计算位置（基于页面百分比）
                 long xEmu = (long)(pageWidthEmu * settings.CustomX / 100f) - imageWidthEmu / 2;
                 long yEmu = (long)(pageHeightEmu * settings.CustomY / 100f) - imageHeightEmu / 2;
 
+                // 确保位置在有效范围内
+                xEmu = Math.Max(0, Math.Min(xEmu, pageWidthEmu - imageWidthEmu));
+                yEmu = Math.Max(0, Math.Min(yEmu, pageHeightEmu - imageHeightEmu));
+
                 int rotationEmu = (int)(settings.Rotation * 60000);
 
-                // 创建锚定到页面的水印段落
-                var watermarkParagraph = CreateAnchorParagraph(
-                    imageRelId, imageWidthEmu, imageHeightEmu,
-                    xEmu, yEmu, rotationEmu);
+                // 创建水印段落并插入到 Body 开头
+                var watermarkPara = CreateWatermarkParagraph(imageRelId, imageWidthEmu, imageHeightEmu, xEmu, yEmu, rotationEmu);
+                body.PrependChild(watermarkPara);
 
-                // 将水印段落插入到正文最前面（第一个段落之前）
-                var firstPara = body.Elements<Paragraph>().FirstOrDefault();
-                if (firstPara != null)
-                {
-                    firstPara.InsertBeforeSelf(watermarkParagraph);
-                }
-                else
-                {
-                    body.PrependChild(watermarkParagraph);
-                }
-
-                // 确保有SectionProperties
+                // 确保 SectionProperties 存在
                 EnsureSectionProperties(body);
-
-                // 设置首页页眉为空（防止首页同时显示页眉水印）
-                var sections = body.Elements<SectionProperties>().ToList();
-                foreach (var section in sections)
-                {
-                    // 添加 DifferentPageFirstHeader 以便首页使用独立页眉
-                    var titlePg = section.Elements<TitlePage>().FirstOrDefault();
-                    if (titlePg == null)
-                    {
-                        section.PrependChild(new TitlePage());
-                    }
-                }
 
                 mainPart.Document.Save();
                 return true;
@@ -106,88 +85,89 @@ namespace WatermarkTool.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Word水印添加失败: {ex.Message}");
+                Console.WriteLine($"堆栈: {ex.StackTrace}");
                 return false;
             }
         }
 
         /// <summary>
-        /// 创建锚定到页面的水印段落（wp:anchor）
+        /// 创建水印段落 - 使用原生 OpenXML SDK API
         /// </summary>
-        private static Paragraph CreateAnchorParagraph(
+        private static Paragraph CreateWatermarkParagraph(
             string imageRelId, long widthEmu, long heightEmu,
             long xEmu, long yEmu, int rotationEmu)
         {
-            // 使用 wp:anchor 将图片锚定到页面
-            // behindDoc=true 让水印在文字后面
-            // relativeHeight=-1 确保在最底层
-            // simplePos=true + posOffset 实现精确定位
-            var paragraphXml = $@"
-<w:p xmlns:w=""http://schemas.openxmlformats.org/wordprocessingml/2006/main""
-     xmlns:r=""http://schemas.openxmlformats.org/officeDocument/2006/relationships""
-     xmlns:wp=""http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing""
-     xmlns:a=""http://schemas.openxmlformats.org/drawingml/2006/main""
-     xmlns:pic=""http://schemas.openxmlformats.org/drawingml/2006/picture"">
-  <w:r>
-    <w:rPr>
-      <w:rFonts w:ascii=""宋体"" w:eastAsia=""宋体"" w:hAnsi=""宋体""/>
-    </w:rPr>
-    <w:drawing>
-      <wp:anchor distT=""0"" distB=""0"" distL=""0"" distR=""0""
-                  simplePos=""0"" relativeHeight=""-251658240""
-                  behindDoc=""true"" locked=""false""
-                  layoutInCell=""true"" allowOverlap=""true"">
-        <wp:simplePos x=""0"" y=""0""/>
-        <wp:positionH relativeFrom=""page"">
-          <wp:posOffset>{xEmu}</wp:posOffset>
-        </wp:positionH>
-        <wp:positionV relativeFrom=""page"">
-          <wp:posOffset>{yEmu}</wp:posOffset>
-        </wp:positionV>
-        <wp:extent cx=""{widthEmu}"" cy=""{heightEmu}""/>
-        <wp:effectExtent l=""0"" t=""0"" r=""0"" b=""0""/>
-        <wp:wrapNone/>
-        <wp:docPr id=""1"" name=""Watermark""/>
-        <wp:cNvGraphicFramePr>
-          <a:graphicFrameLocks noChangeAspect=""1""/>
-        </wp:cNvGraphicFramePr>
-        <a:graphic>
-          <a:graphicData uri=""http://schemas.openxmlformats.org/drawingml/2006/picture"">
-            <pic:pic>
-              <pic:nvPicPr>
-                <pic:cNvPr id=""0"" name=""Watermark.png""/>
-                <pic:cNvPicPr/>
-              </pic:nvPicPr>
-              <pic:blipFill>
-                <a:blip r:embed=""{imageRelId}""/>
-                <a:stretch>
-                  <a:fillRect/>
-                </a:stretch>
-              </pic:blipFill>
-              <pic:spPr>
-                <a:xfrm rot=""{rotationEmu}"">
-                  <a:off x=""0"" y=""0""/>
-                  <a:ext cx=""{widthEmu}"" cy=""{heightEmu}""/>
-                </a:xfrm>
-                <a:prstGeom prst=""rect"">
-                  <a:avLst/>
-                </a:prstGeom>
-              </pic:spPr>
-            </pic:pic>
-          </a:graphicData>
-        </a:graphic>
-      </wp:anchor>
-    </w:drawing>
-  </w:r>
-</w:p>";
+            // 创建段落
+            var paragraph = new Paragraph();
+            var run = new Run();
+            
+            // 创建 Drawing 包含 Anchor
+            var drawing = new Drawing();
+            
+            // 创建 Anchor
+            var anchor = new DW.Anchor(
+                new DW.SimplePosition { X = 0, Y = 0 },
+                new DW.HorizontalPosition(
+                    new DW.PositionOffset(xEmu.ToString())
+                ) { RelativeFrom = DW.HorizontalRelativePositionValues.Page },
+                new DW.VerticalPosition(
+                    new DW.PositionOffset(yEmu.ToString())
+                ) { RelativeFrom = DW.VerticalRelativePositionValues.Page },
+                new DW.Extent { Cx = widthEmu, Cy = heightEmu },
+                new DW.EffectExtent { LeftEdge = 0, TopEdge = 0, RightEdge = 0, BottomEdge = 0 },
+                new DW.WrapNone(),
+                new DW.DocProperties { Id = 1, Name = "Watermark" },
+                new DW.NonVisualGraphicFrameDrawingProperties(
+                    new A.GraphicFrameLocks { NoChangeAspect = true }
+                ),
+                new A.Graphic(
+                    new A.GraphicData(
+                        new PIC.Picture(
+                            new PIC.NonVisualPictureProperties(
+                                new A.NonVisualDrawingProperties { Id = 0, Name = "Watermark.png" },
+                                new A.NonVisualPictureDrawingProperties()
+                            ),
+                            new PIC.BlipFill(
+                                new A.Blip { Embed = imageRelId },
+                                new A.Stretch(new A.FillRectangle())
+                            ),
+                            new PIC.ShapeProperties(
+                                new A.Transform2D(
+                                    new A.Offset { X = 0, Y = 0 },
+                                    new A.Extents { Cx = widthEmu, Cy = heightEmu }
+                                ) { Rotation = rotationEmu },
+                                new A.PresetGeometry(new A.AdjustValueList()) { Preset = A.ShapeTypeValues.Rectangle }
+                            )
+                        )
+                    ) { Uri = "http://schemas.openxmlformats.org/drawingml/2006/picture" }
+                )
+            )
+            {
+                DistanceFromTop = 0,
+                DistanceFromBottom = 0,
+                DistanceFromLeft = 0,
+                DistanceFromRight = 0,
+                SimplePosition = false,
+                RelativeHeight = -251658240, // 确保在最底层
+                BehindDoc = true,            // 在文字后面
+                Locked = false,
+                LayoutInCell = true,
+                AllowOverlap = true
+            };
 
-            return new Paragraph(paragraphXml);
+            drawing.Append(anchor);
+            run.Append(drawing);
+            paragraph.Append(run);
+
+            return paragraph;
         }
 
         /// <summary>
-        /// 生成水印图片（无阴影，半透明）
+        /// 生成水印图片
         /// </summary>
         private static Bitmap GenerateWatermarkImage(string text, WatermarkSettings settings)
         {
+            // 字体大小转换（磅到像素）
             var fontSize = (int)(settings.FontSize * 2.5);
             using var font = new WinFont(settings.FontFamily, fontSize, FontStyle.Bold);
 
@@ -204,7 +184,7 @@ namespace WatermarkTool.Services
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
             g.Clear(WinColor.Transparent);
 
-            // 统一使用半透明文字，无阴影
+            // 绘制半透明文字
             using var textBrush = new SolidBrush(WinColor.FromArgb(settings.Opacity, settings.Color));
             g.DrawString(text, font, textBrush, padding, padding);
 
@@ -212,22 +192,31 @@ namespace WatermarkTool.Services
         }
 
         /// <summary>
-        /// 移除已有的水印页眉
+        /// 移除已有的所有水印
         /// </summary>
-        private static void RemoveExistingWatermarkHeaders(MainDocumentPart mainPart)
+        private static void RemoveExistingWatermarks(MainDocumentPart mainPart, Body body)
         {
-            var headerParts = mainPart.HeaderParts.ToList();
-            foreach (var headerPart in headerParts)
+            // 1. 移除页眉中的水印
+            foreach (var headerPart in mainPart.HeaderParts.ToList())
             {
                 try
                 {
-                    var headerElement = headerPart.Header;
-                    if (headerElement != null)
+                    var header = headerPart.Header;
+                    if (header != null)
                     {
-                        var hasImage = headerElement.Descendants<Drawing>().Any() ||
-                                       headerElement.Descendants<DocumentFormat.OpenXml.Vml.ImageData>().Any();
+                        // 查找包含图片的段落
+                        var picParas = header.Elements<Paragraph>()
+                            .Where(p => p.Descendants<Drawing>().Any() || 
+                                       p.Descendants<DocumentFormat.OpenXml.Vml.ImageData>().Any())
+                            .ToList();
+                        
+                        foreach (var para in picParas)
+                        {
+                            para.Remove();
+                        }
 
-                        if (hasImage)
+                        // 如果页眉为空，删除页眉部分
+                        if (!header.HasChildren)
                         {
                             mainPart.DeletePart(headerPart);
                         }
@@ -235,40 +224,51 @@ namespace WatermarkTool.Services
                 }
                 catch { }
             }
-        }
 
-        /// <summary>
-        /// 移除已有的锚定水印图片（wp:anchor）
-        /// </summary>
-        private static void RemoveExistingAnchoredWatermarks(Body body)
-        {
-            var paragraphs = body.Elements<Paragraph>().ToList();
-            foreach (var para in paragraphs)
+            // 2. 移除 Body 中的水印段落
+            var watermarkParas = body.Elements<Paragraph>()
+                .Where(p => IsWatermarkParagraph(p))
+                .ToList();
+            
+            foreach (var para in watermarkParas)
             {
-                var drawings = para.Descendants<DocumentFormat.OpenXml.Wordprocessing.Drawing>().ToList();
-                if (drawings.Any())
-                {
-                    // 检查是否是水印（通过name属性）
-                    var isWatermark = false;
-                    foreach (var drawing in drawings)
-                    {
-                        var xml = drawing.OuterXml ?? "";
-                        if (xml.Contains("name=\"Watermark\"") || xml.Contains("name='Watermark'"))
-                        {
-                            isWatermark = true;
-                            break;
-                        }
-                    }
-                    if (isWatermark)
-                    {
-                        para.Remove();
-                    }
-                }
+                para.Remove();
             }
         }
 
         /// <summary>
-        /// 确保文档有SectionProperties
+        /// 判断段落是否为水印段落
+        /// </summary>
+        private static bool IsWatermarkParagraph(Paragraph para)
+        {
+            var drawings = para.Descendants<Drawing>().ToList();
+            if (!drawings.Any())
+                return false;
+
+            foreach (var drawing in drawings)
+            {
+                // 检查 Anchor 或 Inline 中的图片
+                var anchors = drawing.Descendants<DW.Anchor>().ToList();
+                var inlines = drawing.Descendants<DW.Inline>().ToList();
+                
+                foreach (var anchor in anchors)
+                {
+                    if (anchor.DocProperties?.Name == "Watermark")
+                        return true;
+                }
+                
+                foreach (var inline in inlines)
+                {
+                    if (inline.DocProperties?.Name == "Watermark")
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 确保文档有 SectionProperties
         /// </summary>
         private static void EnsureSectionProperties(Body body)
         {

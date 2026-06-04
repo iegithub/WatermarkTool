@@ -271,7 +271,7 @@ namespace WatermarkTool.Forms
                 AutoSize = true,
                 Margin = new Padding(0, 5, 0, 2),
                 Font = new Font("微软雅黑", 9f)
-            }));
+            });
 
             miniPreviewPanel = new Panel
             {

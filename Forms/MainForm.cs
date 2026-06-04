@@ -260,7 +260,7 @@ namespace WatermarkTool.Forms
             flow.Controls.Add(CreateSettingRow("字体:", CreateFontComboBox()));
             flow.Controls.Add(CreateFontSizeRow());
             flow.Controls.Add(CreateColorRow());
-            flow.Controls.Add(CreateSettingRow("透明度:", CreateOpacityControl()));
+            flow.Controls.Add(CreateSettingRow("透明度:", CreateOpacityRow()));
             flow.Controls.Add(CreateRotationRow());
             flow.Controls.Add(CreatePositionRow());
 

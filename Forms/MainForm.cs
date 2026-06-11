@@ -540,7 +540,7 @@ namespace WatermarkTool.Forms
 
         private Button CreateButton(string text, int width, int height, Color bgColor, EventHandler onClick)
         {
-            return new Button
+            var btn = new Button
             {
                 Text = text,
                 Size = new Size(width, height),
@@ -551,6 +551,8 @@ namespace WatermarkTool.Forms
                 Cursor = Cursors.Hand,
                 Margin = new Padding(0, 0, 5, 0)
             };
+            btn.Click += onClick;
+            return btn;
         }
         #endregion
 

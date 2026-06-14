@@ -205,7 +205,7 @@ namespace WatermarkTool.Services
 
             var legacyDrawing = new LegacyDrawing()
             {
-                Id = "rIdWatermarkVml"
+                Id = new StringValue("rIdWatermarkVml")
             };
 
             sheetData.InsertAfterSelf(legacyDrawing);

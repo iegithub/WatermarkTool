@@ -103,89 +103,107 @@ namespace WatermarkTool.Services
             // 创建段落
             var paragraph = new Paragraph();
             var run = new Run();
-
-            // 创建 Drawing
             var drawing = new Drawing();
 
-            // 创建 Anchor
-            var anchor = new DW.Anchor(
-                new DW.SimplePosition { X = 0, Y = 0 },
-                new DW.HorizontalPosition(
-                    new DW.PositionOffset(xEmu.ToString())
-                )
-                {
-                    RelativeFrom = DW.HorizontalRelativePositionValues.Page
-                },
-                new DW.VerticalPosition(
-                    new DW.PositionOffset(yEmu.ToString())
-                )
-                {
-                    RelativeFrom = DW.VerticalRelativePositionValues.Page
-                },
-                new DW.Extent { Cx = widthEmu, Cy = heightEmu },
-                new DW.EffectExtent
-                {
-                    LeftEdge = 0,
-                    TopEdge = 0,
-                    RightEdge = 0,
-                    BottomEdge = 0
-                },
-                new DW.WrapNone(),
-                new DW.DocProperties
-                {
-                    Id = 1,
-                    Name = "Watermark"
-                },
-                new DW.NonVisualGraphicFrameDrawingProperties(
-                    new A.GraphicFrameLocks { NoChangeAspect = true }
-                ),
-                new A.Graphic(
-                    new A.GraphicData(
-                        new PIC.Picture(
-                            new PIC.NonVisualPictureProperties(
-                                new A.NonVisualDrawingProperties
-                                {
-                                    Id = 0,
-                                    Name = "Watermark.png"
-                                },
-                                new A.NonVisualPictureDrawingProperties()
-                            ),
-                            new PIC.BlipFill(
-                                new A.Blip { Embed = imageRelId },
-                                new A.Stretch(new A.FillRectangle())
-                            ),
-                            new PIC.ShapeProperties(
-                                new A.Transform2D(
-                                    new A.Offset { X = 0, Y = 0 },
-                                    new A.Extents { Cx = widthEmu, Cy = heightEmu }
-                                )
-                                {
-                                    Rotation = rotationEmu
-                                },
-                                new A.PresetGeometry(new A.AdjustValueList())
-                                {
-                                    Preset = A.ShapeTypeValues.Rectangle
-                                }
-                            )
-                        )
-                    )
-                    {
-                        Uri = "http://schemas.openxmlformats.org/drawingml/2006/picture"
-                    }
-                )
-            )
+            // 创建 Anchor - 使用无参构造函数
+            var anchor = new DW.Anchor();
+
+            // 设置 Anchor 属性
+            anchor.DistanceFromTop = 0;
+            anchor.DistanceFromBottom = 0;
+            anchor.DistanceFromLeft = 0;
+            anchor.DistanceFromRight = 0;
+            anchor.SimplePosition = false;
+            anchor.RelativeHeight = -251658240;
+            anchor.BehindDoc = true;
+            anchor.Locked = false;
+            anchor.LayoutInCell = true;
+            anchor.AllowOverlap = true;
+
+            // SimplePosition
+            anchor.Append(new DW.SimplePosition { X = 0, Y = 0 });
+
+            // HorizontalPosition
+            var hp = new DW.HorizontalPosition(
+                new DW.PositionOffset(xEmu.ToString())
+            );
+            hp.RelativeFrom = DW.HorizontalRelativePositionValues.Page;
+            anchor.Append(hp);
+
+            // VerticalPosition
+            var vp = new DW.VerticalPosition(
+                new DW.PositionOffset(yEmu.ToString())
+            );
+            vp.RelativeFrom = DW.VerticalRelativePositionValues.Page;
+            anchor.Append(vp);
+
+            // Extent
+            anchor.Append(new DW.Extent { Cx = widthEmu, Cy = heightEmu });
+
+            // EffectExtent
+            anchor.Append(new DW.EffectExtent
             {
-                DistanceFromTop = 0,
-                DistanceFromBottom = 0,
-                DistanceFromLeft = 0,
-                DistanceFromRight = 0,
-                SimplePosition = false,
-                RelativeHeight = -251658240,
-                BehindDoc = true,
-                Locked = false,
-                LayoutInCell = true,
-                AllowOverlap = true
-            };
+                LeftEdge = 0,
+                TopEdge = 0,
+                RightEdge = 0,
+                BottomEdge = 0
+            });
+
+            // WrapNone
+            anchor.Append(new DW.WrapNone());
+
+            // DocProperties
+            anchor.Append(new DW.DocProperties
+            {
+                Id = 1,
+                Name = "Watermark"
+            });
+
+            // NonVisualGraphicFrameDrawingProperties
+            anchor.Append(new DW.NonVisualGraphicFrameDrawingProperties(
+                new A.GraphicFrameLocks { NoChangeAspect = true }
+            ));
+
+            // Graphic
+            var graphic = new A.Graphic();
+            var graphicData = new A.GraphicData();
+            graphicData.Uri = "http://schemas.openxmlformats.org/drawingml/2006/picture";
+
+            // Picture
+            var picture = new PIC.Picture();
+
+            // NonVisualPictureProperties
+            var nvPicPr = new PIC.NonVisualPictureProperties();
+            nvPicPr.Append(new A.NonVisualDrawingProperties
+            {
+                Id = 0,
+                Name = "Watermark.png"
+            });
+            nvPicPr.Append(new A.NonVisualPictureDrawingProperties());
+            picture.Append(nvPicPr);
+
+            // BlipFill
+            var blipFill = new PIC.BlipFill();
+            blipFill.Append(new A.Blip { Embed = imageRelId });
+            blipFill.Append(new A.Stretch(new A.FillRectangle()));
+            picture.Append(blipFill);
+
+            // ShapeProperties
+            var spPr = new PIC.ShapeProperties();
+            var xfrm = new A.Transform2D();
+            xfrm.Append(new A.Offset { X = 0, Y = 0 });
+            xfrm.Append(new A.Extents { Cx = widthEmu, Cy = heightEmu });
+            xfrm.Rotation = rotationEmu;
+            spPr.Append(xfrm);
+            spPr.Append(new A.PresetGeometry(new A.AdjustValueList())
+            {
+                Preset = A.ShapeTypeValues.Rectangle
+            });
+            picture.Append(spPr);
+
+            graphicData.Append(picture);
+            graphic.Append(graphicData);
+            anchor.Append(graphic);
 
             drawing.Append(anchor);
             run.Append(drawing);

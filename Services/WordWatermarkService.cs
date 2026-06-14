@@ -114,7 +114,7 @@ namespace WatermarkTool.Services
             anchor.DistanceFromLeft = 0;
             anchor.DistanceFromRight = 0;
             anchor.SimplePosition = new DW.SimplePosition { X = 0, Y = 0 };
-            anchor.RelativeHeight = new UInt32Value(251658240);
+            anchor.RelativeHeight = (UInt32Value)251658240u;
             anchor.BehindDoc = true;
             anchor.Locked = false;
             anchor.LayoutInCell = true;

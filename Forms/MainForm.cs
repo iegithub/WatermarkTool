@@ -562,7 +562,7 @@ namespace WatermarkTool.Forms
             using var ofd = new OpenFileDialog
             {
                 Title = "选择Excel或Word文件",
-                Filter = "Office文件|*.xlsx;*.docx|Excel文件|*.xlsx|Word文件|*.docx",
+                Filter = "Office文件|*.xlsx;*.docx;*.xls;*.doc|Excel文件|*.xlsx;*.xls|Word文件|*.docx;*.doc",
                 Multiselect = true
             };
             if (ofd.ShowDialog() == DialogResult.OK)
@@ -586,8 +586,7 @@ namespace WatermarkTool.Forms
             {
                 _sourceRootPath = fbd.SelectedPath;
                 var files = Directory.GetFiles(fbd.SelectedPath, "*.*", SearchOption.AllDirectories)
-                    .Where(f => f.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase) ||
-                                f.EndsWith(".docx", StringComparison.OrdinalIgnoreCase))
+                    .Where(f => IsSupportedFile(f))
                     .ToArray();
                 AddFiles(files);
             }
@@ -599,6 +598,12 @@ namespace WatermarkTool.Forms
             lstFiles!.Items.Clear();
         }
 
+        private static bool IsSupportedFile(string filePath)
+        {
+            var ext = Path.GetExtension(filePath).ToLowerInvariant();
+            return ext == ".xlsx" || ext == ".docx" || ext == ".xls" || ext == ".doc";
+        }
+
         private void AddFiles(string[] files)
         {
             foreach (var file in files)
@@ -606,7 +611,11 @@ namespace WatermarkTool.Forms
                 if (!_selectedFiles.Contains(file))
                 {
                     _selectedFiles.Add(file);
-                    lstFiles!.Items.Add(Path.GetFileName(file));
+                    var ext = Path.GetExtension(file).ToLowerInvariant();
+                    var label = Path.GetFileName(file);
+                    if (ext == ".xls" || ext == ".doc")
+                        label += " (将自动转换)";
+                    lstFiles!.Items.Add(label);
                 }
             }
         }
@@ -763,6 +772,24 @@ namespace WatermarkTool.Forms
                         }
 
                         var ext = Path.GetExtension(filePath).ToLowerInvariant();
+                        
+                        // 老版本格式自动转换
+                        string? convertedPath = null;
+                        if (ext == ".doc" || ext == ".xls")
+                        {
+                            convertedPath = ConvertLegacyFile(filePath);
+                            if (convertedPath == null)
+                            {
+                                result.Success = false;
+                                result.ErrorMessage = $"无法转换老版本格式文件: {ext}";
+                                results.Add(result);
+                                continue;
+                            }
+                            filePath = convertedPath;
+                            ext = Path.GetExtension(filePath).ToLowerInvariant();
+                            result.FileName = Path.GetFileName(filePath);
+                        }
+
                         if (ext == ".docx")
                             result.Success = WordWatermarkService.AddWatermark(filePath, watermarkText, _currentSettings);
                         else if (ext == ".xlsx")
@@ -928,6 +955,15 @@ namespace WatermarkTool.Forms
                 if (found != null) return found;
             }
             return null;
+        }
+
+        /// <summary>
+        /// 将老版本 Office 文件转换为新格式
+        /// </summary>
+        private static string? ConvertLegacyFile(string filePath)
+        {
+            var result = LegacyFileConverter.ConvertToNewFormat(filePath);
+            return result.Success ? result.ConvertedPath : null;
         }
         #endregion
     }
